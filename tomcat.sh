@@ -1,11 +1,49 @@
+#!/bin/bash
+
+# Configuration
+TOMCAT_VER="9.0.85"  # Verify latest version at https://tomcat.apache.org/download-90.cgi
+MANAGER_USER="admin"  # Change username here
+MANAGER_PASS="1234"  # Change password here
+
+# Install Java
 yum install java-17-amazon-corretto -y
-wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.85/bin/apache-tomcat-9.0.85.tar.gz
-tar -zxvf apache-tomcat-9.0.85.tar.gz
-sed -i '56  a\<role rolename="manager-gui"/>' apache-tomcat-9.0.85/conf/tomcat-users.xml
-sed -i '57  a\<role rolename="manager-script"/>' apache-tomcat-9.0.85/conf/tomcat-users.xml
-sed -i '58  a\<user username="tomcat" password="admin@123" roles="manager-gui, manager-script"/>' apache-tomcat-9.0.85/conf/tomcat-users.xml
-sed -i '59  a\</tomcat-users>' apache-tomcat-9.0.85/conf/tomcat-users.xml
-sed -i '56d' apache-tomcat-9.0.85/conf/tomcat-users.xml
-sed -i '21d' apache-tomcat-9.0.85/webapps/manager/META-INF/context.xml
-sed -i '22d'  apache-tomcat-9.0.85/webapps/manager/META-INF/context.xml
-sh apache-tomcat-9.0.85/bin/startup.sh
+
+# Download Tomcat
+wget https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VER}/bin/apache-tomcat-${TOMCAT_VER}.tar.gz || {
+    echo "Failed to download Tomcat. Check version at https://tomcat.apache.org"
+    exit 1
+}
+
+# Extract and configure
+tar -zxvf apache-tomcat-${TOMCAT_VER}.tar.gz
+cd apache-tomcat-${TOMCAT_VER}
+
+# Properly configure tomcat-users.xml
+cat > conf/tomcat-users.xml <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<tomcat-users xmlns="http://tomcat.apache.org/xml"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
+              version="1.0">
+  <role rolename="manager-gui"/>
+  <role rolename="manager-script"/>
+  <role rolename="manager-jmx"/>
+  <role rolename="manager-status"/>
+  <user username="${MANAGER_USER}" password="${MANAGER_PASS}"
+        roles="manager-gui,manager-script,manager-jmx,manager-status"/>
+</tomcat-users>
+EOF
+
+# Enable remote manager access
+sed -i '/<Valve/,+2s/^/<!-- /' webapps/manager/META-INF/context.xml
+sed -i '/<Valve/,+2s/$/ -->/' webapps/manager/META-INF/context.xml
+
+# Start Tomcat
+bin/startup.sh
+
+echo "--------------------------------------------------"
+echo "Tomcat ${TOMCAT_VER} installed successfully!"
+echo "Manager URL: http://$(curl -s ifconfig.me):8080/manager/html"
+echo "Username: ${MANAGER_USER}"
+echo "Password: ${MANAGER_PASS}"
+echo "--------------------------------------------------"
